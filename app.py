@@ -1,13 +1,52 @@
-from flask import Flask, render_template, request, redirect, send_file, url_for
+from flask import Flask, render_template, request, redirect, send_file, url_for, session
+from functools import wraps
 import mysql.connector
+from werkzeug.security import generate_password_hash, check_password_hash
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
 app = Flask(__name__)
 
+# Secret key for signing the session cookie. Set SECRET_KEY in your
+# environment (Render -> Environment tab) for production. Falls back to a
+# random value so local testing still works, but the session resets every
+# time the app restarts if you don't set this.
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
+
 DB_NAME = "student_info_db"
 TABLE_NAME = "student_info"
+
+# ---------------------------------------------------------------
+# Admin credentials (single admin login)
+# Set these in your environment (Render -> Environment tab):
+#   ADMIN_USERNAME      e.g. admin
+#   ADMIN_PASSWORD_HASH generate with generate_password_hash("yourpassword")
+#
+# If ADMIN_PASSWORD_HASH is not set, it falls back to ADMIN_PASSWORD (plain
+# text) just so the app doesn't break on first run -- but for real
+# deployments, always set ADMIN_PASSWORD_HASH instead.
+# ---------------------------------------------------------------
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+ADMIN_PASSWORD_PLAIN_FALLBACK = os.getenv("ADMIN_PASSWORD", "admin123")
+
+
+def verify_password(password):
+    if ADMIN_PASSWORD_HASH:
+        return check_password_hash(ADMIN_PASSWORD_HASH, password)
+    # fallback only used if ADMIN_PASSWORD_HASH was never set
+    return password == ADMIN_PASSWORD_PLAIN_FALLBACK
+
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+    return wrapped
+
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -18,8 +57,37 @@ def get_db_connection():
         database=os.getenv("DB_NAME")
     )
 
+
+# ---------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get("logged_in"):
+        return redirect(url_for('index'))
+
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+        if username == ADMIN_USERNAME and verify_password(password):
+            session['logged_in'] = True
+            session['username'] = username
+            return redirect(url_for('index'))
+        error = "Invalid username or password."
+
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
 # Home - list students
 @app.route('/')
+@login_required
 def index():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -30,6 +98,7 @@ def index():
 
 # Add student
 @app.route('/add', methods=['POST'])
+@login_required
 def add_student():
     data = (
         request.form.get('student_id'),
@@ -57,6 +126,7 @@ def add_student():
 
 # Update student
 @app.route('/update/<int:id>', methods=['GET', 'POST'])
+@login_required
 def update_student(id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -90,6 +160,7 @@ def update_student(id):
 
 # Delete student
 @app.route('/delete/<int:id>')
+@login_required
 def delete_student(id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -100,6 +171,7 @@ def delete_student(id):
 
 # Download all as table-style PDF
 @app.route('/download_all')
+@login_required
 def download_all():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -141,6 +213,7 @@ def download_all():
 
 # Download single student by student_id (table-style)
 @app.route('/download_student/<student_id>')
+@login_required
 def download_student(student_id):
     conn = get_db_connection()
     cursor = conn.cursor()

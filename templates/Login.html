@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login · Student Information Management System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    html, body {
+      min-height: 100vh;
+      background: var(--paper);
+    }
+
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      max-width: 760px;
+      min-height: 460px;
+      background: var(--paper-raised);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 2px rgba(28,36,48,0.04), 0 16px 40px rgba(28,36,48,0.10);
+      overflow: hidden;
+    }
+
+    /* -------- Left panel: the ledger signature -------- */
+    .login-aside {
+      background: var(--ink);
+      color: #fafaf8;
+      padding: 38px 34px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-aside::before {
+      /* faint ruled-paper lines, like a ledger book */
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 27px,
+        rgba(255,255,255,0.045) 27px,
+        rgba(255,255,255,0.045) 28px
+      );
+      pointer-events: none;
+    }
+
+    .login-aside::after {
+      /* the binding margin rule */
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 56px;
+      width: 1px;
+      background: rgba(176, 92, 92, 0.35);
+      pointer-events: none;
+    }
+
+    .aside-top { position: relative; z-index: 1; }
+    .aside-bottom { position: relative; z-index: 1; }
+
+    .aside-mark {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(250,250,248,0.55);
+      margin-bottom: 18px;
+    }
+
+    .aside-title {
+      font-family: var(--font-display);
+      font-size: 25px;
+      font-weight: 600;
+      line-height: 1.25;
+      margin: 0 0 14px;
+      max-width: 230px;
+    }
+
+    .aside-sub {
+      font-size: 13px;
+      color: rgba(250,250,248,0.65);
+      line-height: 1.55;
+      max-width: 230px;
+    }
+
+    .ledger-entry {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(250,250,248,0.4);
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0 6px 18px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .ledger-entry:first-of-type { border-top: none; }
+    .ledger-entry span:last-child { color: rgba(122, 184, 154, 0.9); }
+
+    /* -------- Right panel: the form -------- */
+    .login-main {
+      padding: 44px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-head { margin-bottom: 26px; }
+
+    .login-head .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .login-head h1 {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      margin: 0 0 6px;
+      color: var(--ink);
+    }
+
+    .login-head p {
+      font-size: 13px;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    .login-field { margin-bottom: 16px; }
+
+    .login-main .form-actions {
+      margin-top: 6px;
+      padding-top: 0;
+      border-top: none;
+      justify-content: stretch;
+    }
+    .login-main .btn-primary {
+      width: 100%;
+      justify-content: center;
+      padding: 11px 20px;
+    }
+
+    .flash-error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .flash-error .flash-icon { font-size: 13px; flex-shrink: 0; }
+
+    .login-footnote {
+      margin-top: 22px;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      text-align: center;
+    }
+
+    /* -------- Responsive: stack on small screens -------- */
+    @media (max-width: 640px) {
+      .login-card {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+      }
+      .login-aside {
+        padding: 26px 28px;
+        min-height: 150px;
+      }
+      .login-aside::after { display: none; }
+      .aside-title { font-size: 20px; max-width: none; }
+      .aside-sub { max-width: none; }
+      .aside-bottom { display: none; }
+      .login-main { padding: 32px 28px; }
+    }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+
+    <!-- Left: signature ledger panel -->
+    <div class="login-aside">
+      <div class="aside-top">
+        <span class="aside-mark">Register · Vol. I</span>
+        <h2 class="aside-title">Student Information Management System</h2>
+        <p class="aside-sub">Administrator access only. Every record entered, edited, or removed here is logged against this session.</p>
+      </div>
+      <div class="aside-bottom">
+        <div class="ledger-entry"><span>Entry type</span><span>Admin record</span></div>
+        <div class="ledger-entry"><span>Access level</span><span>Full</span></div>
+        <div class="ledger-entry"><span>Session</span><span>This browser only</span></div>
+      </div>
+    </div>
+
+    <!-- Right: the actual form -->
+    <div class="login-main">
+      <div class="login-head">
+        <span class="eyebrow">Sign in</span>
+        <h1>Welcome back</h1>
+        <p>Enter your admin credentials to continue.</p>
+      </div>
+
+      {% if error %}
+        <div class="flash-error"><span class="flash-icon">⚠</span><span>{{ error }}</span></div>
+      {% endif %}
+
+      <form method="POST" novalidate>
+        <div class="field login-field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter username" required autofocus>
+        </div>
+        <div class="field login-field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Log In</button>
+        </div>
+      </form>
+
+      <div class="login-footnote">Access is limited to authorized administrators.</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
